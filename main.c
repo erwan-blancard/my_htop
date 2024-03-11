@@ -23,7 +23,7 @@
 
 // UI
 #define MIN_COL_SIZE 8
-#define MAX_PROC_LINES 10
+#define MAX_PROC_LINES 4
 
 #define PID_COL_SIZE 8
 #define NAME_COL_SIZE 48
@@ -39,8 +39,8 @@
 
 typedef struct {
     int pid;
-    char name[256];
-    char mem_usage[128];
+    char name[128];
+    char mem_usage[64];
     double cpu_usage;
 } ProcessDescriptor;
 
@@ -143,8 +143,6 @@ double getProcessCpuUsage(int pid) {
         }
 
         pclose(fp);
-    } else {
-        printf("Failed to run \"%s\"", cmd);
     }
 
     free(cmd);
@@ -170,7 +168,7 @@ void getProcesses(GET_PROCESSES_RESULT *result, int sort_type) {
 
     int descIndex = 0;
     // iterate over each directories
-    while ((entry = readdir(dir)) != NULL || descIndex >= MAX_PROCESS_BUFFER_SIZE) {
+    while ((entry = readdir(dir)) != NULL && descIndex <= MAX_PROCESS_BUFFER_SIZE) {
         if (isProcessDir(entry)) {
 
             // use cat command to get information about process
@@ -227,11 +225,11 @@ void getProcesses(GET_PROCESSES_RESULT *result, int sort_type) {
 void print_col_at(int row, int col, char* content, int col_size) {
     if ((int)strlen(content) > col_size) {
         int i = 0;
-        while (i < col_size-2) {
+        while (i < col_size-3) {
             mvprintw(row, col+i, "%c", content[i]);
             i++;
         }
-        mvprintw(row, col+(col_size-2), "...");
+        mvprintw(row, col+(col_size-3), "...");
     } else {
         mvprintw(row, col, "%s", content);
         // fill the rest of the col space with blank chars
