@@ -23,6 +23,7 @@
 
 // UI
 #define MIN_COL_SIZE 8
+#define MAX_PROC_LINES 10
 
 #define PID_COL_SIZE 8
 #define NAME_COL_SIZE 48
@@ -247,7 +248,7 @@ void print_col_at(int row, int col, char* content, int col_size) {
 }
 
 
-void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
+void draw_ui(GET_PROCESSES_RESULT result, int cursor, int rowOffset) {
     int lines = LINES;
     int cols = COLS;
 
@@ -305,22 +306,29 @@ void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
         print_col_at(row, 1+pid_col_size+name_col_size+cpu_col_size, "-", mem_col_size);
     }
 
-    for (int i = 0; i < result.count; ++i) {
+    for (int i = 0; i < MAX_PROC_LINES; ++i) {
         // buffer used for values that needs to be formatted with sprintf
         char str_buff[32];
 
-        sprintf(str_buff, "%d", processes[i].pid);
-        print_col_at(row, 1, str_buff, pid_col_size);
+        if (i+rowOffset < result.count) {
+            sprintf(str_buff, "%d", processes[i+rowOffset].pid);
+            print_col_at(row, 1, str_buff, pid_col_size);
 
-        print_col_at(row, 1+pid_col_size, processes[i].name, name_col_size);
+            print_col_at(row, 1+pid_col_size, processes[i+rowOffset].name, name_col_size);
 
-        sprintf(str_buff, "%.1f%%", processes[i].cpu_usage);
-        print_col_at(row, 1+pid_col_size+name_col_size, str_buff, cpu_col_size);
+            sprintf(str_buff, "%.1f%%", processes[i+rowOffset].cpu_usage);
+            print_col_at(row, 1+pid_col_size+name_col_size, str_buff, cpu_col_size);
 
-        print_col_at(row, 1+pid_col_size+name_col_size+cpu_col_size, processes[i].mem_usage, mem_col_size);
+            print_col_at(row, 1+pid_col_size+name_col_size+cpu_col_size, processes[i+rowOffset].mem_usage, mem_col_size);
+        } else {
+            print_col_at(row, 1, " ", pid_col_size);
+            print_col_at(row, 1+pid_col_size, " ", name_col_size);
+            print_col_at(row, 1+pid_col_size+name_col_size, " ", cpu_col_size);
+            print_col_at(row, 1+pid_col_size+name_col_size+cpu_col_size, " ", mem_col_size);
+        }
         
         // higlight entire row if row is our currently pointed process
-        if (i == cursor) {
+        if (i+rowOffset == cursor) {
             mvprintw(row, 0, ">");
             mvchgat(row, 1, cols, A_STANDOUT, 255, NULL);
         } else {
@@ -348,10 +356,11 @@ int main() {
 
     // UI vars
     int cursor = 0;
+    int rowOffset = 0;
 
     int sort_type = 0;
 
-    time_t prev_time = time(NULL);
+    time_t prev_time = 0L;
 
     int prev_win_rows = LINES;
     int prev_win_cols = COLS;
@@ -365,8 +374,6 @@ int main() {
 
     while (running) {
 
-        getProcesses(&result, sort_type);
-
         // check cursor
         if (cursor >= result.count) {
             if (result.count == 0) {
@@ -377,7 +384,7 @@ int main() {
         }
 
         // clear();
-        draw_ui(result, cursor);
+        draw_ui(result, cursor, rowOffset);
         // refresh();
 
         // wait for user input
@@ -401,6 +408,7 @@ int main() {
                 // refresh every seconds
                 if (prev_time < time(NULL)) {
                     prev_time = time(NULL);
+                    getProcesses(&result, sort_type);
                     break;
                 }
                 input_satisfying = false;
@@ -413,33 +421,46 @@ int main() {
             case KEY_UP:
                 if (cursor-1 >= 0) {
                     cursor--;
+
+                    if (cursor < rowOffset) {
+                        rowOffset--;
+                    }
                 }
                 break;
 
             case KEY_DOWN:
                 if (cursor+1 <= result.count-1) {
                     cursor++;
+
+                    if (cursor+rowOffset >= MAX_PROC_LINES) {
+                        rowOffset++;
+                    }
                 }
                 break;
 
             case KEY_F(9):
                 if (result.descriptors != NULL && result.count != 0) {
                     killProcess(result.descriptors[cursor].pid);
+                    getProcesses(&result, sort_type);
                 }
                 break;
 
             // sort keys
             case KEY_F(5):
                 sort_type = 0;
+                getProcesses(&result, sort_type);
                 break;
             case KEY_F(6):
                 sort_type = SORT_BY_NAME;
+                getProcesses(&result, sort_type);
                 break;
             case KEY_F(7):
                 sort_type = SORT_BY_CPU;
+                getProcesses(&result, sort_type);
                 break;
             case KEY_F(8):
                 sort_type = SORT_BY_MEM;
+                getProcesses(&result, sort_type);
                 break;
             
             default:
