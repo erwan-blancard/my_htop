@@ -23,7 +23,7 @@
 
 // UI
 #define MIN_COL_SIZE 8
-#define MAX_PROC_LINES 4
+#define MAX_PROC_LINES 10
 
 #define PID_COL_SIZE 8
 #define NAME_COL_SIZE 48
