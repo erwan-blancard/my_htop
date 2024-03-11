@@ -125,7 +125,7 @@ double getProcessCpuUsage(int pid) {
     fp = popen(cmd, "r");
 
     if (fp != NULL) {
-        char value[16];
+        char value[16] = {"\0"};
         char line[COMMAND_LINE_BUFF];
 
         // iterate over lines from FILE content (should only have one)
@@ -134,7 +134,7 @@ double getProcessCpuUsage(int pid) {
             break;
         }
 
-        if (value != NULL) {
+        if (strlen(value) != 0) {
             // convert char* to double
             double cpu_usage = strtod(value, NULL);
             pclose(fp);
@@ -200,13 +200,11 @@ void getProcesses(GET_PROCESSES_RESULT *result, int sort_type) {
             }
 
             free(cmd);
-            // else {
-            //     printf("Failed to run \"%s\"", cmd);
-            // }
         }
     }
 
-    free(entry);
+    if (entry != NULL)
+        free(entry);
 
     closedir(dir);
 

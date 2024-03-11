@@ -17,3 +17,7 @@ rdebug:
 rvalgrind:
 	gcc -o my_htop *.c -Wall -Wextra -Werror -g3 -lncurses
 	valgrind -s --leak-check=full ./my_htop
+
+rvalgrind-log:
+	gcc -o my_htop *.c -Wall -Wextra -Werror -g3 -lncurses
+	valgrind -s --leak-check=yes --log-file=valgrind.rpt ./my_htop

@@ -1,3 +1,4 @@
 my_htop
 .vscode/
 sos.sh
+valgrind.rpt
