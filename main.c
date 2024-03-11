@@ -152,19 +152,18 @@ double getProcessCpuUsage(int pid) {
 }
 
 
-GET_PROCESSES_RESULT getProcesses(int sort_type) {
-    GET_PROCESSES_RESULT result = {0, NULL};
-
+void getProcesses(GET_PROCESSES_RESULT *result, int sort_type) {
     DIR *dir;
 
     // open /proc dir where all processes are listed
     dir = opendir("/proc");
 
     if (dir == NULL) {
-        return result;
+        result->count = 0;
+        return;
     }
 
-    ProcessDescriptor* descriptors = (ProcessDescriptor*)malloc(MAX_PROCESS_BUFFER_SIZE*sizeof(ProcessDescriptor));
+    ProcessDescriptor *descriptors = result->descriptors;
     
     struct dirent *entry;
 
@@ -210,21 +209,19 @@ GET_PROCESSES_RESULT getProcesses(int sort_type) {
 
     closedir(dir);
 
-    result.count = descIndex;
-    result.descriptors = descriptors;
+    result->count = descIndex;
+    result->descriptors = descriptors;
 
     // sort descriptors
     if (sort_type == SORT_BY_PID) {
-        qsort(result.descriptors, result.count, sizeof(ProcessDescriptor), cmp_pid);
+        qsort(result->descriptors, result->count, sizeof(ProcessDescriptor), cmp_pid);
     } else if (sort_type == SORT_BY_NAME) {
-        qsort(result.descriptors, result.count, sizeof(ProcessDescriptor), cmp_name);
+        qsort(result->descriptors, result->count, sizeof(ProcessDescriptor), cmp_name);
     } else if (sort_type == SORT_BY_MEM) {
-        qsort(result.descriptors, result.count, sizeof(ProcessDescriptor), cmp_mem);
+        qsort(result->descriptors, result->count, sizeof(ProcessDescriptor), cmp_mem);
     } else if (sort_type == SORT_BY_CPU) {
-        qsort(result.descriptors, result.count, sizeof(ProcessDescriptor), cmp_cpu);
+        qsort(result->descriptors, result->count, sizeof(ProcessDescriptor), cmp_cpu);
     }
-
-    return result;
 }
 
 
@@ -251,8 +248,11 @@ void print_col_at(int row, int col, char* content, int col_size) {
 
 
 void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
-    mvprintw(LINES-1, 0, "Move:Up/Down F9:Kill F10:Quit");
-    mvprintw(LINES-2, 0, "Sort by -> F5:PID F6:Name F7:CPU F8:Memory");
+    int lines = LINES;
+    int cols = COLS;
+
+    mvprintw(lines-1, 0, "Move:Up/Down F9:Kill F10:Quit");
+    mvprintw(lines-2, 0, "Sort by -> F5:PID F6:Name F7:CPU F8:Memory");
     // mvprintw(LINES-3, 0, "Cursor: %d", cursor);
 
     int pid_col_size = PID_COL_SIZE;
@@ -260,8 +260,8 @@ void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
     int mem_col_size = MEM_COL_SIZE;
     int cpu_col_size = CPU_COL_SIZE;
 
-    if (pid_col_size+name_col_size+mem_col_size+cpu_col_size > COLS-1) {
-        if (COLS-1 < MIN_COL_SIZE*4) {
+    if (pid_col_size+name_col_size+mem_col_size+cpu_col_size > cols-1) {
+        if (cols-1 < MIN_COL_SIZE*4) {
             pid_col_size = MIN_COL_SIZE;
             name_col_size = MIN_COL_SIZE;
             mem_col_size = MIN_COL_SIZE;
@@ -269,7 +269,7 @@ void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
         }
         else {
             // reduce col sizes
-            while (pid_col_size+name_col_size+mem_col_size+cpu_col_size > COLS-1) {
+            while (pid_col_size+name_col_size+mem_col_size+cpu_col_size > cols-1) {
                 if (pid_col_size >= name_col_size && pid_col_size >= mem_col_size && pid_col_size >= cpu_col_size) {
                     pid_col_size--;
                 }
@@ -322,10 +322,10 @@ void draw_ui(GET_PROCESSES_RESULT result, int cursor) {
         // higlight entire row if row is our currently pointed process
         if (i == cursor) {
             mvprintw(row, 0, ">");
-            mvchgat(row, 1, COLS, A_STANDOUT, 255, NULL);
+            mvchgat(row, 1, cols, A_STANDOUT, 255, NULL);
         } else {
             mvprintw(row, 0, " ");
-            mvchgat(row, 1, COLS, A_NORMAL, 255, NULL);
+            mvchgat(row, 1, cols, A_NORMAL, 255, NULL);
         }
 
         row++;
@@ -355,13 +355,17 @@ int main() {
 
     int prev_win_rows = LINES;
     int prev_win_cols = COLS;
+
+    GET_PROCESSES_RESULT result = {0, NULL};
+    // alloc space for 100 processes
+    result.descriptors = (ProcessDescriptor*)malloc(MAX_PROCESS_BUFFER_SIZE*sizeof(ProcessDescriptor));
     
     // do not stop program execution when using getch() with ncurses (return -1 if no input)
     nodelay(stdscr, true);
 
     while (running) {
 
-        GET_PROCESSES_RESULT result = getProcesses(sort_type);
+        getProcesses(&result, sort_type);
 
         // check cursor
         if (cursor >= result.count) {
@@ -446,9 +450,10 @@ int main() {
         
 
         // sleep(1);
-        if (result.descriptors != NULL) {
-            free(result.descriptors);
-        }
+    }
+
+    if (result.descriptors != NULL) {
+        free(result.descriptors);
     }
 
     // free(win);
